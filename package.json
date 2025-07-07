@@ -7,14 +7,18 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
-    "watch": "tsc --watch"
+    "watch": "tsc --watch",
+    "test": "vitest",
+    "test:ui": "vitest --ui"
   },
   "dependencies": {
     "effect": "^3.0.0"
   },
   "devDependencies": {
-    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0",
+    "@vitest/ui": "^3.2.4",
     "ts-node": "^10.9.0",
-    "@types/node": "^20.0.0"
+    "typescript": "^5.0.0",
+    "vitest": "^3.2.4"
   }
 }

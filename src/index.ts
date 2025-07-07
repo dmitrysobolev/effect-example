@@ -5,24 +5,24 @@ type Fx<A, E = never> = Effect.Effect<A, E>
 type AsyncFx<A, E = Error> = Effect.Effect<A, E>
 
 // Error classes
-class NetworkError {
+export class NetworkError {
   readonly _tag = "NetworkError"
   constructor(readonly message: string) {}
 }
 
-class ValidationError {
+export class ValidationError {
   readonly _tag = "ValidationError" 
   constructor(readonly message: string) {}
 }
 
-interface User {
+export interface User {
   id: number
   name: string
   email: string
 }
 
 // Example functions
-const fetchUser = (id: number): Fx<User, NetworkError> => {
+export const fetchUser = (id: number): Fx<User, NetworkError> => {
   if (id <= 0) {
     return Effect.fail(new NetworkError("Invalid user ID"))
   }
@@ -34,20 +34,20 @@ const fetchUser = (id: number): Fx<User, NetworkError> => {
   })
 }
 
-const validateUser = (user: User): Fx<User, ValidationError> => {
+export const validateUser = (user: User): Fx<User, ValidationError> => {
   if (!user.email.includes("@")) {
     return Effect.fail(new ValidationError("Invalid email format"))
   }
   return Effect.succeed(user)
 }
 
-const processUser = (id: number) => pipe(
+export const processUser = (id: number) => pipe(
   fetchUser(id),
   Effect.flatMap(validateUser),
   Effect.tap(user => Console.log(`Processing user: ${user.name}`))
 )
 
-const safeProcessUser = (id: number) => pipe(
+export const safeProcessUser = (id: number) => pipe(
   processUser(id),
   Effect.catchAll(error => {
     switch (error._tag) {
@@ -132,5 +132,7 @@ async function main() {
   }
 }
 
-// Run the examples
-main().catch(console.error)
+// Run the examples only when not testing
+if (process.env.NODE_ENV !== 'test' && require.main === module) {
+  main().catch(console.error)
+}

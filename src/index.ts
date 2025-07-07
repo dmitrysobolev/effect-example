@@ -59,6 +59,41 @@ export const safeProcessUser = (id: number) => pipe(
   })
 )
 
+// Database connection simulator
+export interface DatabaseConnection {
+  query: (sql: string) => Promise<any[]>
+  close: () => void
+}
+
+// Resource management helper for database connections
+export const createWithDatabaseConnection = (logger: (msg: string) => void = console.log) => 
+  <A, E>(operation: (db: DatabaseConnection) => Fx<A, E>) =>
+    Effect.acquireUseRelease(
+      // Acquire: Open database connection
+      Effect.sync(() => {
+        logger("  📂 Opening database connection")
+        const connection: DatabaseConnection = {
+          query: async (sql) => {
+            logger(`  🔍 Executing query: ${sql}`)
+            // Simulate database query
+            return [{ id: 1, name: "Sample Result" }]
+          },
+          close: () => logger("  ✅ Connection closed")
+        }
+        return connection
+      }),
+      // Use: Execute the operation with the connection
+      connection => operation(connection),
+      // Release: Close the connection (always runs, even on error)
+      connection => Effect.sync(() => {
+        logger("  📁 Closing database connection")
+        connection.close()
+      })
+    )
+
+// Default withDatabaseConnection using console.log
+export const withDatabaseConnection = createWithDatabaseConnection()
+
 // Main runner function
 async function main() {
   console.log("=== Effect Library Examples ===\n")
@@ -105,26 +140,18 @@ async function main() {
     console.log("Combined result:", result4)
     console.log()
 
-    // Example 5: Resource management simulation
-    console.log("5. Resource management:")
-    const withResource = <A>(operation: Fx<A>) =>
-      Effect.acquireUseRelease(
-        Effect.sync(() => {
-          console.log("  📂 Opening resource")
-          return { connected: true }
-        }),
-        _ => operation,
-        _ => Effect.sync(() => {
-          console.log("  📁 Closing resource")
-        })
-      )
-
-    const resourceOperation = pipe(
-      Effect.succeed("Resource operation completed"),
-      Effect.tap(msg => Console.log(`  ⚡ ${msg}`))
+    // Example 5: Resource management with database connection
+    console.log("5. Resource management (Database Connection):")
+    
+    // Define the database operation
+    const databaseOperation = (db: DatabaseConnection) => pipe(
+      Effect.promise(() => db.query("SELECT * FROM users")),
+      Effect.tap(results => Console.log(`  ⚡ Query returned ${results.length} results`)),
+      Effect.map(results => results[0])
     )
 
-    await Effect.runPromise(withResource(resourceOperation))
+    const result5 = await Effect.runPromise(withDatabaseConnection(databaseOperation))
+    console.log("  Query result:", result5)
     console.log()
 
   } catch (error) {

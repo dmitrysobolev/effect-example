@@ -9,3 +9,4 @@ coverage/
 .npm
 .yarn-integrity
 *.tsbuildinfo
+.claude/

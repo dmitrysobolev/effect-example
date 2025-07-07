@@ -1,4 +1,5 @@
 import { Effect, Console, pipe } from "effect"
+import { User, parseUser } from "./schemas"
 
 // Type aliases to reduce duplication
 type Fx<A, E = never> = Effect.Effect<A, E>
@@ -15,12 +16,6 @@ export class ValidationError {
   constructor(readonly message: string) {}
 }
 
-export interface User {
-  id: number
-  name: string
-  email: string
-}
-
 // Example functions
 export const fetchUser = (id: number): Fx<User, NetworkError> => {
   if (id <= 0) {
@@ -34,11 +29,14 @@ export const fetchUser = (id: number): Fx<User, NetworkError> => {
   })
 }
 
+// Validates untrusted data and returns a validated User
 export const validateUser = (user: User): Fx<User, ValidationError> => {
-  if (!user.email.includes("@")) {
-    return Effect.fail(new ValidationError("Invalid email format"))
-  }
-  return Effect.succeed(user)
+  return pipe(
+    parseUser(user),
+    Effect.mapError(error => new ValidationError(
+      `User validation failed: ${error.message}`
+    ))
+  )
 }
 
 export const processUser = (id: number) => pipe(

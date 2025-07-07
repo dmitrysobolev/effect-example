@@ -1,14 +1,14 @@
 import { describe, it, expect } from 'vitest'
 import { Effect, pipe } from 'effect'
 
-import { 
-  NetworkError, 
-  ValidationError, 
-  fetchUser, 
-  validateUser, 
-  processUser, 
+import {
+  NetworkError,
+  ValidationError,
+  fetchUser,
+  validateUser,
+  processUser,
   safeProcessUser,
-  createWithDatabaseConnection 
+  createWithDatabaseConnection, User
 } from './index'
 
 describe('Effect Examples Tests', () => {
@@ -49,7 +49,43 @@ describe('Effect Examples Tests', () => {
       } catch (error: any) {
         const cause = JSON.parse(error.message)
         expect(cause._tag).toBe('ValidationError')
-        expect(cause.message).toBe('Invalid email format')
+        expect(cause.message).toContain('User validation failed')
+      }
+    })
+
+    it('should fail for negative user ID', async () => {
+      const user = { id: -1, name: 'Test', email: 'test@example.com' }
+      try {
+        await Effect.runPromise(validateUser(user))
+        expect.fail('Should have thrown an error')
+      } catch (error: any) {
+        const cause = JSON.parse(error.message)
+        expect(cause._tag).toBe('ValidationError')
+        expect(cause.message).toContain('User validation failed')
+      }
+    })
+
+    it('should fail for empty name', async () => {
+      const user = { id: 1, name: '', email: 'test@example.com' }
+      try {
+        await Effect.runPromise(validateUser(user))
+        expect.fail('Should have thrown an error')
+      } catch (error: any) {
+        const cause = JSON.parse(error.message)
+        expect(cause._tag).toBe('ValidationError')
+        expect(cause.message).toContain('User validation failed')
+      }
+    })
+
+    it('should fail for non-integer ID', async () => {
+      const user = { id: 1.5, name: 'Test', email: 'test@example.com' }
+      try {
+        await Effect.runPromise(validateUser(user))
+        expect.fail('Should have thrown an error')
+      } catch (error: any) {
+        const cause = JSON.parse(error.message)
+        expect(cause._tag).toBe('ValidationError')
+        expect(cause.message).toContain('User validation failed')
       }
     })
   })
@@ -93,7 +129,7 @@ describe('Effect Examples Tests', () => {
     it('should return error object on validation error', async () => {
       // Create a custom fetchUser that returns invalid email
       const customFetchUser = (id: number) => 
-        Effect.succeed({ id, name: `User ${id}`, email: 'no-at-sign' })
+        Effect.succeed({ id, name: `User ${id}`, email: 'no-at-sign' } as User)
       
       const customProcessUser = (id: number) => pipe(
         customFetchUser(id),

@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { Effect, pipe } from 'effect'
 
-// Import the functions and classes from index.ts
 import { 
   NetworkError, 
   ValidationError, 
@@ -114,6 +113,68 @@ describe('Effect Examples Tests', () => {
 
       const result = await Effect.runPromise(customSafeProcessUser(1))
       expect(result).toEqual({ error: 'Validation failed' })
+    })
+  })
+
+  describe('NetworkError', () => {
+    it('should create NetworkError with correct properties', () => {
+      const error = new NetworkError('Connection timeout')
+      expect(error._tag).toBe('NetworkError')
+      expect(error.message).toBe('Connection timeout')
+    })
+
+    it('should be catchable by _tag', async () => {
+      const effect = pipe(
+        Effect.fail(new NetworkError('API down')),
+        Effect.catchTag('NetworkError', (error) => 
+          Effect.succeed(`Caught: ${error.message}`)
+        )
+      )
+      const result = await Effect.runPromise(effect)
+      expect(result).toBe('Caught: API down')
+    })
+  })
+
+  describe('ValidationError', () => {
+    it('should create ValidationError with correct properties', () => {
+      const error = new ValidationError('Field is required')
+      expect(error._tag).toBe('ValidationError')
+      expect(error.message).toBe('Field is required')
+    })
+
+    it('should be catchable by _tag', async () => {
+      const effect = pipe(
+        Effect.fail(new ValidationError('Invalid format')),
+        Effect.catchTag('ValidationError', (error) => 
+          Effect.succeed(`Validation failed: ${error.message}`)
+        )
+      )
+      const result = await Effect.runPromise(effect)
+      expect(result).toBe('Validation failed: Invalid format')
+    })
+
+    it('should handle multiple error types with catchAll', async () => {
+      const networkEffect = Effect.fail(new NetworkError('Network error'))
+      const validationEffect = Effect.fail(new ValidationError('Validation error'))
+      
+      const handleError = (error: NetworkError | ValidationError) => {
+        switch (error._tag) {
+          case 'NetworkError':
+            return Effect.succeed('Handled network error')
+          case 'ValidationError':
+            return Effect.succeed('Handled validation error')
+        }
+      }
+
+      const networkResult = await Effect.runPromise(
+        pipe(networkEffect, Effect.catchAll(handleError))
+      )
+      expect(networkResult).toBe('Handled network error')
+
+      const validationResult = await Effect.runPromise(
+        pipe(validationEffect, Effect.catchAll(handleError))
+      )
+      expect(validationResult).toBe('Handled validation error')
     })
   })
 

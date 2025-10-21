@@ -13,6 +13,7 @@ This project showcases various Effect library patterns including:
 - **Concurrency patterns** (racing, parallel processing, fiber management, interruption)
 - **Scheduling & Jittered delays** (retry with backoff, recurring tasks, anti-thundering herd)
 - **Stream processing** (transformations, chunking, backpressure, data pipelines)
+- **Resource pooling** (database connections, HTTP clients, pool management, best practices)
 
 ## Installation
 
@@ -353,6 +354,116 @@ pipe(
 - **Composable**: Chain transformations declaratively
 - **Backpressure**: Handle fast producers and slow consumers
 - **Concurrent**: Process elements in parallel when needed
+
+### 7. Resource Pooling
+
+The `src/resource-pooling.ts` file demonstrates resource pooling patterns for managing limited resources efficiently:
+
+#### Database Connection Pool
+```typescript
+// Create a connection pool
+const pool = dbConnectionPool(
+  10,     // pool size
+  60000   // TTL in milliseconds
+)
+
+// Execute query using pool
+Effect.scoped(
+  pipe(
+    pool,
+    Effect.flatMap((p) => executeQuery(p, "SELECT * FROM users"))
+  )
+)
+```
+
+#### HTTP Client Pool
+```typescript
+// Create HTTP client pool
+const pool = httpClientPool(
+  20,      // pool size
+  120000   // TTL
+)
+
+// Make requests using pool
+Effect.scoped(
+  pipe(
+    pool,
+    Effect.flatMap((p) => makeHttpRequest(p, "https://api.example.com/data"))
+  )
+)
+```
+
+#### Batch Processing with Pool
+```typescript
+// Process batch of items using pool
+const items = ["item1", "item2", "item3"]
+const poolSize = 5
+const concurrency = 3
+
+processBatchWithDbPool(items, poolSize, concurrency)
+```
+
+#### Concurrent URL Scraping
+```typescript
+// Scrape multiple URLs with controlled concurrency
+const urls = [
+  "https://example.com/page1",
+  "https://example.com/page2",
+  "https://example.com/page3"
+]
+
+scrapeUrlsWithPool(urls, 10, 5) // 10 clients, concurrency of 5
+```
+
+#### Pool Configuration Best Practices
+```typescript
+// Production-ready database pool
+const productionDbPool = dbConnectionPool(
+  20,    // size: based on concurrent load
+  45000  // ttl: below server timeout (typically 60s)
+)
+
+// Production-ready HTTP pool
+const productionHttpPool = httpClientPool(
+  50,     // size: for high-throughput APIs
+  90000   // ttl: balance keep-alive and freshness
+)
+```
+
+#### Resource Pool Strategies
+```typescript
+// Pool with min/max size and health checks
+const advancedPool = poolWithHealthCheck()
+
+// Pool warm-up for consistent performance
+Effect.scoped(
+  pipe(
+    dbConnectionPool(10),
+    Effect.flatMap((pool) => warmupPool(pool, 5))
+  )
+)
+
+// Pool with retry logic
+Effect.scoped(
+  pipe(
+    dbConnectionPool(5),
+    Effect.flatMap((pool) => poolGetWithRetry(pool, 3))
+  )
+)
+```
+
+#### Why Resource Pooling?
+- **Resource efficiency**: Reuse expensive resources (database connections, HTTP clients)
+- **Connection management**: Control concurrent resource usage
+- **Performance**: Reduce overhead of creating/destroying resources
+- **Scalability**: Handle burst traffic by queuing requests
+- **Cost control**: Limit resource consumption under load
+
+**Configuration Guidelines:**
+- **Pool Size**: Start with CPU cores × 2 for CPU-bound, 10-20 for I/O-bound tasks
+- **TTL**: 30-60s for databases, 60-120s for HTTP clients
+- **Concurrency**: Match application's concurrent request rate
+- **Min/Max**: Set min for consistent performance, max to prevent exhaustion
 
 ## Pattern Decision Guide
 

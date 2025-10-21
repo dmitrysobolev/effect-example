@@ -6,6 +6,12 @@ import {
   processConcurrently,
   forkJoinExample,
 } from "./concurrency"
+import {
+  retryWithLogging,
+  flakyApiCall,
+  connectToDatabase,
+  repeatWithJitter,
+} from "./scheduling"
 
 // Type aliases to reduce duplication
 type Fx<A, E = never> = Effect.Effect<A, E>
@@ -180,6 +186,32 @@ async function main() {
     console.log("9. Concurrency: Fork and join fibers:")
     const result9 = await Effect.runPromise(forkJoinExample)
     console.log("  Fiber results:", result9)
+    console.log()
+
+    // Example 10: Scheduling - Retry with exponential backoff and jitter
+    console.log("10. Scheduling: Retry with jittered exponential backoff:")
+    const result10 = await Effect.runPromise(
+      retryWithLogging(flakyApiCall("RetryAPI", 0.5), "RetryAPI", 5)
+    )
+    console.log("  Final result:", result10)
+    console.log()
+
+    // Example 11: Scheduling - Database connection with retry
+    console.log("11. Scheduling: Database connection with retry:")
+    const result11 = await Effect.runPromise(connectToDatabase("example-db", 0.4))
+    console.log("  Connection result:", result11)
+    console.log()
+
+    // Example 12: Scheduling - Repeat task with jittered delays
+    console.log("12. Scheduling: Repeat task with jitter (3 times):")
+    let counter = 0
+    const task = Effect.sync(() => {
+      counter++
+      console.log(`  Execution ${counter}`)
+      return counter
+    })
+    const result12 = await Effect.runPromise(repeatWithJitter(task, 3))
+    console.log("  Total executions:", result12)
     console.log()
 
   } catch (error) {

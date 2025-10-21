@@ -11,6 +11,7 @@ This project showcases various Effect library patterns including:
 - Resource management with acquire/use/release pattern
 - Combining multiple effects
 - **Concurrency patterns** (racing, parallel processing, fiber management, interruption)
+- **Scheduling & Jittered delays** (retry with backoff, recurring tasks, anti-thundering herd)
 
 ## Installation
 
@@ -139,6 +140,99 @@ Effect.race(
 withTimeoutFallback(operation, 1000, defaultValue)
 ```
 
+### 5. Scheduling & Jittered Delays
+
+The `src/scheduling.ts` file demonstrates scheduling patterns with jittered delays to prevent thundering herd problems:
+
+#### Exponential Backoff with Jitter
+```typescript
+// Full jitter - random delay between 0 and exponential backoff value
+const fullJitterSchedule = pipe(
+  Schedule.exponential(Duration.millis(100)),
+  Schedule.jittered()
+)
+
+// Retry with jittered exponential backoff
+Effect.retry(operation, fullJitterSchedule)
+```
+
+#### Jitter Strategies
+```typescript
+// Full jitter (0% to 100% of delay)
+Schedule.jittered()
+
+// Proportional jitter (custom range)
+Schedule.jittered({ min: 0.8, max: 1.2 }) // ±20% variation
+
+// Equal jitter (50% to 100% of delay)
+Schedule.jittered({ min: 0.5, max: 1.0 })
+```
+
+#### Capped Backoff
+```typescript
+// Cap maximum delay and limit retries
+const cappedSchedule = pipe(
+  Schedule.exponential(Duration.millis(100)),
+  Schedule.jittered(),
+  Schedule.either(Schedule.spaced(Duration.millis(5000))), // Max 5s
+  Schedule.compose(Schedule.recurs(10)) // Max 10 retries
+)
+```
+
+#### Fibonacci & Linear Backoff
+```typescript
+// Fibonacci: 100ms, 100ms, 200ms, 300ms, 500ms...
+const fibonacciSchedule = pipe(
+  Schedule.fibonacci(Duration.millis(100)),
+  Schedule.jittered()
+)
+
+// Linear: 100ms, 200ms, 300ms, 400ms...
+const linearSchedule = pipe(
+  Schedule.linear(Duration.millis(100)),
+  Schedule.jittered()
+)
+```
+
+#### Practical Retry Examples
+```typescript
+// Database connection with retry
+const connectToDatabase = pipe(
+  attemptConnection,
+  Effect.retry(
+    pipe(
+      Schedule.exponential(Duration.millis(50)),
+      Schedule.jittered(),
+      Schedule.compose(Schedule.recurs(5))
+    )
+  )
+)
+
+// HTTP request with capped retry
+const fetchWithRetry = pipe(
+  httpRequest,
+  Effect.retry(cappedJitterSchedule(100, 5000, 3))
+)
+```
+
+#### Elapsed Time Limits
+```typescript
+// Stop retrying after total elapsed time
+const timedSchedule = pipe(
+  Schedule.exponential(Duration.millis(100)),
+  Schedule.jittered(),
+  Schedule.whileOutput(elapsed =>
+    Duration.lessThan(elapsed, Duration.seconds(30))
+  )
+)
+```
+
+#### Why Jitter?
+Jitter prevents the **thundering herd problem** where many clients retry simultaneously:
+- Without jitter: All clients retry at exactly 100ms, 200ms, 400ms...
+- With jitter: Clients retry at random intervals, spreading the load
+- Critical for distributed systems and high-scale applications
+
 ## Project Structure
 
 ```
@@ -146,8 +240,10 @@ withTimeoutFallback(operation, 1000, defaultValue)
 │   ├── index.ts             # Main examples and implementations
 │   ├── schemas.ts           # Effect Schema definitions
 │   ├── concurrency.ts       # Concurrency patterns examples
+│   ├── scheduling.ts        # Scheduling and jittered delays
 │   ├── index.test.ts        # Tests for basic examples
-│   └── concurrency.test.ts  # Tests for concurrency patterns
+│   ├── concurrency.test.ts  # Tests for concurrency patterns
+│   └── scheduling.test.ts   # Tests for scheduling patterns
 ├── dist/                    # Compiled output
 ├── package.json
 ├── tsconfig.json

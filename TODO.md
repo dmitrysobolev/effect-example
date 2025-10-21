@@ -24,13 +24,13 @@ This document tracks improvements to enhance the Effect library examples in this
 - [x] Add npm script: `npm run example <name>` to run specific examples
 - [x] Document expected output for each example
 
-### 3. Pattern Decision Guide
-- [ ] Add "When to Use" section in README for concurrency patterns
-- [ ] Create decision flowchart: race vs parallel vs sequential
-- [ ] Add timing comparison table showing benefits of concurrency
-- [ ] Document trade-offs for different jitter strategies
-- [ ] Add "Common Pitfalls" section
-- [ ] Include real-world scenario mappings
+### 3. Pattern Decision Guide ✅
+- [x] Add "When to Use" section in README for concurrency patterns
+- [x] Create decision flowchart: race vs parallel vs sequential
+- [x] Add timing comparison table showing benefits of concurrency
+- [x] Document trade-offs for different jitter strategies
+- [x] Add "Common Pitfalls" section
+- [x] Include real-world scenario mappings
 
 ## Medium Priority
 
@@ -123,12 +123,12 @@ This document tracks improvements to enhance the Effect library examples in this
 
 ## Progress Tracking
 
-**High Priority**: 2/3 completed
-**Medium Priority**: 0/3 completed
+**High Priority**: 3/3 completed ✅
+**Medium Priority**: 0/5 completed
 **Low Priority**: 0/3 completed
 **Optional**: 0/2 completed
 
-**Overall**: 2/16 sections completed
+**Overall**: 3/13 sections completed
 
 ---
 

@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "./dist",
+    "types": ["node"],
+    "lib": ["ES2022"],
+    "strict": false,
+    "moduleResolution": "node"
+  },
+  "include": ["examples/**/*", "src/**/*"],
+  "exclude": ["node_modules", "dist"],
+  "ts-node": {
+    "compilerOptions": {
+      "module": "commonjs",
+      "strict": false
+    }
+  }
+}

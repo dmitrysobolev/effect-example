@@ -1,4 +1,4 @@
-import { Effect, Console, pipe, Duration } from "effect"
+import { Effect, Console, pipe, Duration, Stream, Chunk } from "effect"
 import { User, parseUser } from "./schemas"
 import {
   raceExample,
@@ -12,6 +12,12 @@ import {
   connectToDatabase,
   repeatWithJitter,
 } from "./scheduling"
+import {
+  dataPipeline,
+  processLargeDataset,
+  rangeStream,
+  chunkBySize,
+} from "./streaming"
 
 // Type aliases to reduce duplication
 type Fx<A, E = never> = Effect.Effect<A, E>
@@ -212,6 +218,30 @@ async function main() {
     })
     const result12 = await Effect.runPromise(repeatWithJitter(task, 3))
     console.log("  Total executions:", result12)
+    console.log()
+
+    // Example 13: Stream Processing - Data pipeline
+    console.log("13. Stream Processing: Data transformation pipeline:")
+    const result13 = await Effect.runPromise(dataPipeline([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]))
+    console.log("  Pipeline result:", Chunk.toReadonlyArray(result13))
+    console.log()
+
+    // Example 14: Stream Processing - Chunking large dataset
+    console.log("14. Stream Processing: Processing in chunks:")
+    const result14 = await Effect.runPromise(processLargeDataset(20, 5))
+    console.log(`  Processed ${Chunk.size(result14)} chunks`)
+    console.log()
+
+    // Example 15: Stream Processing - Stream aggregation
+    console.log("15. Stream Processing: Stream aggregation:")
+    const result15 = await Effect.runPromise(
+      pipe(
+        rangeStream(1, 10),
+        Stream.map(n => n * 2),
+        Stream.runFold(0, (acc, n) => acc + n)
+      )
+    )
+    console.log("  Sum of doubled numbers:", result15)
     console.log()
 
   } catch (error) {

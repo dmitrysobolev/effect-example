@@ -12,6 +12,7 @@ This project showcases various Effect library patterns including:
 - Combining multiple effects
 - **Concurrency patterns** (racing, parallel processing, fiber management, interruption)
 - **Scheduling & Jittered delays** (retry with backoff, recurring tasks, anti-thundering herd)
+- **Stream processing** (transformations, chunking, backpressure, data pipelines)
 
 ## Installation
 
@@ -233,6 +234,126 @@ Jitter prevents the **thundering herd problem** where many clients retry simulta
 - With jitter: Clients retry at random intervals, spreading the load
 - Critical for distributed systems and high-scale applications
 
+### 6. Stream Processing
+
+The `src/streaming.ts` file demonstrates Effect.Stream for processing large datasets efficiently:
+
+#### Basic Stream Operations
+```typescript
+// Create streams
+const numbers = Stream.range(1, 100)
+const fromData = Stream.fromIterable([1, 2, 3, 4, 5])
+
+// Transform streams
+pipe(
+  numbers,
+  Stream.map(n => n * 2),
+  Stream.filter(n => n % 2 === 0),
+  Stream.take(10),
+  Stream.runCollect
+)
+```
+
+#### Chunking and Batching
+```typescript
+// Process in batches
+pipe(
+  Stream.range(1, 1000),
+  Stream.grouped(50), // Chunks of 50
+  Stream.mapEffect(batch => processBatch(batch)),
+  Stream.runCollect
+)
+
+// Time-based windowing
+Stream.groupedWithin(stream, 100, Duration.seconds(5))
+```
+
+#### Stream Aggregations
+```typescript
+// Fold entire stream
+Stream.runFold(stream, 0, (acc, n) => acc + n)
+
+// Scan with intermediate results
+Stream.scan(stream, 0, (acc, n) => acc + n)
+
+// Collect all elements
+Stream.runCollect(stream)
+```
+
+#### Concurrent Stream Processing
+```typescript
+// Process items concurrently
+pipe(
+  Stream.fromIterable(items),
+  Stream.mapEffect(processItem, { concurrency: 5 }),
+  Stream.runCollect
+)
+
+// Merge multiple streams
+Stream.mergeAll([stream1, stream2, stream3], {
+  concurrency: "unbounded"
+})
+```
+
+#### Backpressure and Flow Control
+```typescript
+// Buffer elements
+Stream.buffer(stream, { capacity: 100 })
+
+// Throttle emissions
+Stream.throttleShape(stream, 1, Duration.seconds(1))
+
+// Debounce
+Stream.debounce(stream, Duration.millis(500))
+```
+
+#### Data Pipelines
+```typescript
+// Complex data transformation pipeline
+pipe(
+  Stream.range(1, 1000),
+  Stream.filter(n => n % 2 === 0),
+  Stream.map(n => n * 2),
+  Stream.grouped(10),
+  Stream.mapEffect(chunk => analyzeChunk(chunk)),
+  Stream.tap(result => Console.log(result)),
+  Stream.runCollect
+)
+```
+
+#### Practical Stream Examples
+```typescript
+// Paginated API fetching
+const fetchAllPages = pipe(
+  Stream.range(1, totalPages),
+  Stream.mapEffect(page => fetchPage(page)),
+  Stream.runCollect
+)
+
+// Real-time event processing
+const processEvents = pipe(
+  eventStream,
+  Stream.groupedWithin(100, Duration.seconds(1)),
+  Stream.map(chunk => aggregateEvents(chunk)),
+  Stream.runCollect
+)
+
+// Sliding window analysis
+pipe(
+  dataStream,
+  Stream.sliding(5), // Window of 5 elements
+  Stream.map(window => calculateMovingAverage(window)),
+  Stream.runCollect
+)
+```
+
+#### Why Streams?
+- **Memory efficient**: Process large datasets without loading everything into memory
+- **Lazy evaluation**: Elements are processed on-demand
+- **Composable**: Chain transformations declaratively
+- **Backpressure**: Handle fast producers and slow consumers
+- **Concurrent**: Process elements in parallel when needed
+
 ## Project Structure
 
 ```
@@ -241,9 +362,11 @@ Jitter prevents the **thundering herd problem** where many clients retry simulta
 │   ├── schemas.ts           # Effect Schema definitions
 │   ├── concurrency.ts       # Concurrency patterns examples
 │   ├── scheduling.ts        # Scheduling and jittered delays
+│   ├── streaming.ts         # Stream processing patterns
 │   ├── index.test.ts        # Tests for basic examples
 │   ├── concurrency.test.ts  # Tests for concurrency patterns
-│   └── scheduling.test.ts   # Tests for scheduling patterns
+│   ├── scheduling.test.ts   # Tests for scheduling patterns
+│   └── streaming.test.ts    # Tests for stream processing
 ├── dist/                    # Compiled output
 ├── package.json
 ├── tsconfig.json

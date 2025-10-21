@@ -10,6 +10,7 @@ This project showcases various Effect library patterns including:
 - Generator syntax for Effects
 - Resource management with acquire/use/release pattern
 - Combining multiple effects
+- **Concurrency patterns** (racing, parallel processing, fiber management, interruption)
 
 ## Installation
 
@@ -65,16 +66,92 @@ const withDatabaseConnection = <A, E>(operation: (db: DatabaseConnection) => Fx<
   )
 ```
 
+### 4. Concurrency Patterns
+
+The `src/concurrency.ts` file demonstrates advanced concurrency patterns:
+
+#### Racing Effects
+```typescript
+// Returns result of fastest effect, interrupts losers
+Effect.race(
+  simulateApiCall("Slow API", 1000, "slow result"),
+  simulateApiCall("Fast API", 100, "fast result")
+)
+```
+
+#### Parallel Processing
+```typescript
+// Run all effects in parallel
+Effect.all([effect1, effect2, effect3], { concurrency: "unbounded" })
+
+// Limit concurrent operations
+Effect.all(effects, { concurrency: 2 })
+
+// Sequential processing
+Effect.all(effects, { concurrency: 1 })
+```
+
+#### Concurrent Iteration
+```typescript
+// Process array items concurrently
+Effect.forEach(
+  items,
+  (item) => processItem(item),
+  { concurrency: 5 }
+)
+```
+
+#### Fiber Management
+```typescript
+// Fork background tasks and join later
+Effect.gen(function* (_) {
+  const fiber = yield* _(Effect.fork(longRunningTask))
+  // Do other work...
+  const result = yield* _(Fiber.join(fiber))
+  return result
+})
+```
+
+#### Interruption Handling
+```typescript
+// Handle graceful cancellation
+const task = pipe(
+  longRunningOperation,
+  Effect.onInterrupt(() => Console.log("Task was cancelled"))
+)
+
+// Guarantee completion even if interrupted
+Effect.uninterruptible(criticalOperation)
+```
+
+#### Timeout Patterns
+```typescript
+// Fail if operation takes too long
+Effect.race(
+  operation,
+  pipe(
+    Effect.sleep(Duration.millis(5000)),
+    Effect.flatMap(() => Effect.fail(new TimeoutError()))
+  )
+)
+
+// Use fallback value on timeout
+withTimeoutFallback(operation, 1000, defaultValue)
+```
+
 ## Project Structure
 
 ```
 ├── src/
-│   ├── index.ts          # Main examples and implementations
-│   └── __tests__/        # Test files
-├── dist/                 # Compiled output
-├── package.json          
-├── tsconfig.json         
-└── vite.config.ts        
+│   ├── index.ts             # Main examples and implementations
+│   ├── schemas.ts           # Effect Schema definitions
+│   ├── concurrency.ts       # Concurrency patterns examples
+│   ├── index.test.ts        # Tests for basic examples
+│   └── concurrency.test.ts  # Tests for concurrency patterns
+├── dist/                    # Compiled output
+├── package.json
+├── tsconfig.json
+└── vite.config.ts
 ```
 
 ## Running Examples

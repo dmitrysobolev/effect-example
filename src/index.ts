@@ -1,5 +1,11 @@
-import { Effect, Console, pipe } from "effect"
+import { Effect, Console, pipe, Duration } from "effect"
 import { User, parseUser } from "./schemas"
+import {
+  raceExample,
+  parallelFetchAll,
+  processConcurrently,
+  forkJoinExample,
+} from "./concurrency"
 
 // Type aliases to reduce duplication
 type Fx<A, E = never> = Effect.Effect<A, E>
@@ -150,6 +156,30 @@ async function main() {
 
     const result5 = await Effect.runPromise(withDatabaseConnection(databaseOperation))
     console.log("  Query result:", result5)
+    console.log()
+
+    // Example 6: Concurrency - Racing effects
+    console.log("6. Concurrency: Racing effects (fastest wins):")
+    const result6 = await Effect.runPromise(raceExample)
+    console.log("  Winner:", result6)
+    console.log()
+
+    // Example 7: Concurrency - Parallel processing
+    console.log("7. Concurrency: Parallel processing:")
+    const result7 = await Effect.runPromise(parallelFetchAll([1, 2, 3]))
+    console.log("  Results:", result7)
+    console.log()
+
+    // Example 8: Concurrency - Concurrent iteration
+    console.log("8. Concurrency: Processing items concurrently:")
+    const result8 = await Effect.runPromise(processConcurrently(["alpha", "beta", "gamma"]))
+    console.log("  Processed:", result8)
+    console.log()
+
+    // Example 9: Concurrency - Fiber management
+    console.log("9. Concurrency: Fork and join fibers:")
+    const result9 = await Effect.runPromise(forkJoinExample)
+    console.log("  Fiber results:", result9)
     console.log()
 
   } catch (error) {

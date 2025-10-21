@@ -125,7 +125,7 @@ This document tracks improvements to enhance the Effect library examples in this
 
 **High Priority**: 0/3 completed
 **Medium Priority**: 0/3 completed
-**Low Priority**: 0/5 completed
+**Low Priority**: 0/3 completed
 **Optional**: 0/2 completed
 
 **Overall**: 0/16 sections completed

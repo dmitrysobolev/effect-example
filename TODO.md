@@ -4,16 +4,16 @@ This document tracks improvements to enhance the Effect library examples in this
 
 ## High Priority
 
-### 1. Expand Test Coverage for Scheduling Patterns
-- [ ] Add tests for fibonacci schedule pattern
-- [ ] Add tests for linear schedule pattern
-- [ ] Add tests for circuit breaker with jitter
-- [ ] Add tests for batch processing with retry
-- [ ] Add tests for health check monitoring
-- [ ] Add timing assertions to verify jitter distribution
-- [ ] Increase scheduling test coverage from 74 to ~200+ lines
+### 1. Expand Test Coverage for Scheduling Patterns ✅
+- [x] Add tests for fibonacci schedule pattern
+- [x] Add tests for linear schedule pattern
+- [x] Add tests for circuit breaker with jitter
+- [x] Add tests for batch processing with retry
+- [x] Add tests for health check monitoring
+- [x] Add timing assertions to verify jitter distribution
+- [x] Increase scheduling test coverage from 74 to 850 lines (41 tests)
 
-**Goal**: Match the comprehensive test coverage of concurrency patterns (446 lines)
+**Goal**: Match the comprehensive test coverage of concurrency patterns (446 lines) - **EXCEEDED** (850 lines)
 
 ### 2. Create Getting Started Examples
 - [ ] Create `examples/` directory structure
@@ -123,12 +123,12 @@ This document tracks improvements to enhance the Effect library examples in this
 
 ## Progress Tracking
 
-**High Priority**: 0/3 completed
+**High Priority**: 1/3 completed
 **Medium Priority**: 0/3 completed
 **Low Priority**: 0/3 completed
 **Optional**: 0/2 completed
 
-**Overall**: 0/16 sections completed
+**Overall**: 1/16 sections completed
 
 ---
 

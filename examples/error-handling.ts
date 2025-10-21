@@ -212,17 +212,17 @@ const processUserSafely = (userId: number) => pipe(
     NetworkError: (error) =>
       Effect.gen(function* () {
         yield* Console.log(`Network issue: ${error.message}`)
-        return Effect.succeed({ status: "error", type: "network" })
+        return { status: "error", type: "network" }
       }),
     ValidationError: (error) =>
       Effect.gen(function* () {
         yield* Console.log(`Validation failed on ${error.field}: ${error.message}`)
-        return Effect.succeed({ status: "error", type: "validation" })
+        return { status: "error", type: "validation" }
       }),
     NotFoundError: (error) =>
       Effect.gen(function* () {
         yield* Console.log(`Resource not found: ${error.resourceId}`)
-        return Effect.succeed({ status: "error", type: "not-found" })
+        return { status: "error", type: "not-found" }
       })
   })
 )

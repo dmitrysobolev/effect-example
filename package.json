@@ -7,7 +7,8 @@
     "build": "vite build",
     "dev": "vite build --watch",
     "test": "vitest",
-    "test:ui": "vitest --ui"
+    "test:ui": "vitest --ui",
+    "example": "ts-node --project tsconfig.examples.json"
   },
   "dependencies": {
     "effect": "^3.0.0"

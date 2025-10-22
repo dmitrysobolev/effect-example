@@ -13,6 +13,7 @@ This project showcases various Effect library patterns including:
 - **Concurrency patterns** (racing, parallel processing, fiber management, interruption)
 - **Scheduling & Jittered delays** (retry with backoff, recurring tasks, anti-thundering herd)
 - **Stream processing** (transformations, chunking, backpressure, data pipelines)
+- **Resource pooling** (database connections, HTTP clients, automatic lifecycle management)
 
 ## Installation
 
@@ -778,20 +779,192 @@ const startSyncJob = Effect.gen(function* (_) {
 // Result: User has control over long-running operations
 ```
 
+### 7. Resource Pooling
+
+The `src/resource-pooling.ts` file demonstrates resource pool management for databases, HTTP clients, and other expensive resources.
+
+#### Database Connection Pool
+
+```typescript
+// Create a pool with minimum and maximum connections
+const pool = makeDbConnectionPool(minSize: 2, maxSize: 10)
+
+// Use the pool in a scoped context
+const result = await Effect.runPromise(
+  Effect.scoped(
+    Effect.flatMap(pool, (p) =>
+      queryWithPool(p, "SELECT * FROM users")
+    )
+  )
+)
+```
+
+**Key Features:**
+- Automatic resource acquisition and release
+- Connection reuse for efficiency
+- Configurable pool size limits
+- Backpressure handling when pool is exhausted
+
+#### HTTP Client Pool
+
+```typescript
+// Create a pool for HTTP clients
+const clientPool = makeHttpClientPool(minSize: 3, maxSize: 15)
+
+// Fetch multiple URLs using the pool
+const urls = [
+  "https://api.example.com/users",
+  "https://api.example.com/products",
+  "https://api.example.com/orders"
+]
+
+const results = await Effect.runPromise(
+  Effect.scoped(
+    Effect.flatMap(clientPool, (pool) =>
+      fetchMultipleUrls(pool, urls)
+    )
+  )
+)
+```
+
+#### Pool Best Practices
+
+**Conservative Configuration** (for databases, expensive resources):
+```typescript
+{
+  minSize: 2,
+  maxSize: 10,
+  timeToLive: Duration.minutes(5)  // Recycle old connections
+}
+```
+
+**Aggressive Configuration** (for HTTP clients, lightweight resources):
+```typescript
+{
+  minSize: 5,
+  maxSize: 50,
+  timeToLive: Duration.minutes(1)
+}
+```
+
+#### Transaction Pattern
+
+Use the same connection for multiple related operations:
+
+```typescript
+const executeTransaction = (pool, operations) =>
+  Effect.scoped(
+    Effect.flatMap(pool, (p) =>
+      Pool.get(p).pipe(
+        Effect.flatMap((conn) =>
+          Effect.all(operations.map(op => op(conn)), {
+            concurrency: 1  // Sequential within transaction
+          })
+        )
+      )
+    )
+  )
+```
+
+#### Pool Warmup
+
+Pre-create connections during application startup to avoid cold-start latency:
+
+```typescript
+// Warm up pool with initial connections
+const warmupPool = (pool, count: number = 3) =>
+  Effect.scoped(
+    Effect.flatMap(pool, (p) =>
+      Effect.all(
+        Array.from({ length: count }, () => Pool.get(p)),
+        { concurrency: "unbounded" }
+      )
+    )
+  )
+
+// Use at application startup
+await Effect.runPromise(
+  Effect.scoped(
+    Effect.flatMap(makeDbConnectionPool(2, 10), (pool) =>
+      pipe(
+        warmupPool(pool, 5),
+        Effect.flatMap(() => runApplication(pool))
+      )
+    )
+  )
+)
+```
+
+#### Advanced Patterns
+
+**Query with Timeout:**
+```typescript
+const queryWithTimeout = (pool, sql, timeoutMs = 5000) =>
+  pipe(
+    queryWithPool(pool, sql),
+    Effect.timeout(Duration.millis(timeoutMs)),
+    Effect.catchTag("TimeoutException", () =>
+      Effect.fail(new Error(`Query timed out after ${timeoutMs}ms`))
+    )
+  )
+```
+
+**Fallback Pattern:**
+```typescript
+const queryWithFallback = (pool, sql, fallback) =>
+  pipe(
+    queryWithTimeout(pool, sql, 1000),
+    Effect.catchAll(() => Effect.succeed(fallback))
+  )
+```
+
+**Metrics Tracking:**
+```typescript
+const metrics = { queries: 0, poolWaits: 0 }
+
+const queryWithMetrics = (pool, sql) =>
+  pipe(
+    Effect.sync(() => { metrics.queries++ }),
+    Effect.flatMap(() => queryWithPool(pool, sql))
+  )
+```
+
+#### When to Use Resource Pooling
+
+**Use resource pooling when:**
+- Creating resources is expensive (database connections, HTTP clients)
+- You need to limit concurrent resource usage
+- Resources can be safely reused across operations
+- You want automatic resource lifecycle management
+
+**Don't use pooling when:**
+- Resources are cheap to create/destroy
+- Each operation needs a unique, non-reusable resource
+- Resource state cannot be safely shared
+
+#### Common Pitfalls
+
+1. **Pool Exhaustion**: Set appropriate maxSize based on expected load
+2. **Connection Leaks**: Always use `Effect.scoped` to ensure cleanup
+3. **Cold Starts**: Use warmup for latency-sensitive applications
+4. **Timeouts**: Add timeouts to pool operations to prevent indefinite waiting
+
 ## Project Structure
 
 ```
 ├── src/
-│   ├── index.ts             # Main examples and implementations
-│   ├── schemas.ts           # Effect Schema definitions
-│   ├── concurrency.ts       # Concurrency patterns examples
-│   ├── scheduling.ts        # Scheduling and jittered delays
-│   ├── streaming.ts         # Stream processing patterns
-│   ├── index.test.ts        # Tests for basic examples
-│   ├── concurrency.test.ts  # Tests for concurrency patterns
-│   ├── scheduling.test.ts   # Tests for scheduling patterns
-│   └── streaming.test.ts    # Tests for stream processing
-├── dist/                    # Compiled output
+│   ├── index.ts                 # Main examples and implementations
+│   ├── schemas.ts               # Effect Schema definitions
+│   ├── concurrency.ts           # Concurrency patterns examples
+│   ├── scheduling.ts            # Scheduling and jittered delays
+│   ├── streaming.ts             # Stream processing patterns
+│   ├── resource-pooling.ts      # Resource pool management
+│   ├── index.test.ts            # Tests for basic examples
+│   ├── concurrency.test.ts      # Tests for concurrency patterns
+│   ├── scheduling.test.ts       # Tests for scheduling patterns
+│   ├── streaming.test.ts        # Tests for stream processing
+│   └── resource-pooling.test.ts # Tests for resource pooling
+├── dist/                        # Compiled output
 ├── package.json
 ├── tsconfig.json
 └── vite.config.ts

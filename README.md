@@ -14,6 +14,7 @@ This project showcases various Effect library patterns including:
 - **Scheduling & Jittered delays** (retry with backoff, recurring tasks, anti-thundering herd)
 - **Stream processing** (transformations, chunking, backpressure, data pipelines)
 - **Resource pooling** (database connections, HTTP clients, automatic lifecycle management)
+- **Enhanced error handling** (tapError logging, recovery strategies, error aggregation, context enrichment, timeout patterns)
 
 ## Installation
 
@@ -949,6 +950,376 @@ const queryWithMetrics = (pool, sql) =>
 3. **Cold Starts**: Use warmup for latency-sensitive applications
 4. **Timeouts**: Add timeouts to pool operations to prevent indefinite waiting
 
+### 8. Enhanced Error Handling
+
+The `src/error-handling.ts` module demonstrates advanced error handling patterns beyond basic try-catch:
+
+#### Error Logging with tapError
+
+Log errors without modifying the error channel - crucial for monitoring and debugging:
+
+```typescript
+// Log errors while preserving error flow
+const fetchWithLogging = (url: string) =>
+  pipe(
+    fetchData(url),
+    Effect.tap((data) => Console.log(`Success: ${url}`)),
+    Effect.tapError((error) =>
+      Console.log(`[ERROR] ${error._tag}: ${error.message}`)
+    ),
+    Effect.tapError((error) =>
+      // Send to monitoring service
+      sendToTelemetry(error)
+    )
+  )
+```
+
+**Why tapError?**
+- Doesn't change the error channel (error still propagates)
+- Enables side effects like logging without handling
+- Can chain multiple logging operations
+- Perfect for telemetry and monitoring integration
+
+#### Error Recovery Strategies Beyond Fail-Fast
+
+**Fallback Chain**: Try multiple strategies until one succeeds
+
+```typescript
+const fetchWithFallbacks = (url: string) =>
+  pipe(
+    fetchFromApi(url),           // Try primary
+    Effect.orElse(() => fetchFromCache(url)),  // Try cache
+    Effect.orElse(() => fetchFromBackup(url)), // Try backup
+    Effect.orElse(() => Effect.succeed(defaultData)) // Use default
+  )
+```
+
+**Partial Success**: Process all items, collect both successes and failures
+
+```typescript
+const fetchMultiple = (urls: string[]) =>
+  pipe(
+    Effect.forEach(urls, (url) =>
+      pipe(
+        fetchData(url),
+        Effect.map((data) => ({ url, data, success: true })),
+        Effect.catchAll((error) =>
+          Effect.succeed({ url, error, success: false })
+        )
+      )
+    ),
+    Effect.map((results) => ({
+      successes: results.filter((r) => r.success),
+      failures: results.filter((r) => !r.success)
+    }))
+  )
+```
+
+**Degraded Mode**: After retries exhausted, switch to limited functionality
+
+```typescript
+const fetchWithDegradedMode = (url: string) =>
+  pipe(
+    fetchFullData(url),
+    Effect.retry({ times: 3 }),
+    Effect.map((data) => ({ data, mode: "full" })),
+    Effect.catchAll(() =>
+      Effect.succeed({ data: cachedData, mode: "degraded" })
+    )
+  )
+```
+
+**Circuit Breaker**: Stop trying after repeated failures to prevent cascade failures
+
+```typescript
+// Opens circuit after 3 failures, resets after 1 second
+const circuitBreaker = makeCircuitBreaker(
+  riskyOperation,
+  threshold: 3,
+  resetAfter: Duration.seconds(1)
+)
+
+// States: Closed → Open (fail fast) → Half-Open (try again)
+```
+
+#### Error Aggregation in Concurrent Operations
+
+**Collect All Errors**: Validate all items instead of failing on first error
+
+```typescript
+const validateAll = (items: Item[]) =>
+  pipe(
+    Effect.forEach(items, (item) =>
+      pipe(
+        validateItem(item),
+        Effect.either // Capture both success and failure
+      )
+    ),
+    Effect.flatMap((results) => {
+      const successes = results.filter(isSuccess)
+      const failures = results.filter(isFailure)
+
+      if (failures.length > 0) {
+        return Effect.fail(new AggregateError({
+          message: `${failures.length} validations failed`,
+          errors: failures,
+          successCount: successes.length,
+          failureCount: failures.length
+        }))
+      }
+
+      return Effect.succeed(successes)
+    })
+  )
+```
+
+**First N Successes**: Continue until you get enough successful results
+
+```typescript
+const fetchFirstN = (urls: string[], required: number) =>
+  pipe(
+    Effect.forEach(urls, (url) =>
+      pipe(fetchData(url), Effect.either)
+    ),
+    Effect.flatMap((results) => {
+      const successes = results.filter(isSuccess)
+
+      if (successes.length >= required) {
+        return Effect.succeed(successes.slice(0, required))
+      }
+
+      return Effect.fail(new AggregateError({
+        message: `Only ${successes.length}/${required} succeeded`
+      }))
+    })
+  )
+```
+
+**Error Summary**: Provide aggregated error information
+
+```typescript
+const fetchAllWithSummary = (urls: string[]) =>
+  pipe(
+    Effect.all(urls.map(fetchData), { mode: "either" }),
+    Effect.flatMap((results) => {
+      const failures = results.filter(isFailure)
+
+      if (failures.length > 0) {
+        return Effect.fail({
+          summary: `${failures.length}/${urls.length} failed`,
+          errors: failures,
+          statusCodes: failures.map((e) => e.statusCode)
+        })
+      }
+
+      return Effect.succeed(results.map((r) => r.value))
+    })
+  )
+```
+
+#### Error Context Enrichment
+
+Add contextual information as errors propagate up the call stack:
+
+```typescript
+const enrichErrorContext = (effect, context) =>
+  pipe(
+    effect,
+    Effect.mapError((error) => ({
+      ...error,
+      context: {
+        ...context,
+        timestamp: new Date().toISOString(),
+        originalError: error.message
+      }
+    }))
+  )
+
+// Usage in nested operations
+const loadUserData = (userId: string) =>
+  pipe(
+    Effect.all({
+      profile: fetchProfile(userId),
+      settings: fetchSettings(userId)
+    }),
+    enrichErrorContext({
+      operation: "loadUserData",
+      userId,
+      requestId: generateRequestId()
+    })
+  )
+```
+
+**Add Stack Traces**:
+
+```typescript
+const withStackTrace = (effect, label) =>
+  pipe(
+    effect,
+    Effect.mapError((error) => ({
+      ...error,
+      stackTrace: new Error().stack,
+      functionLabel: label,
+      capturedAt: new Date().toISOString()
+    }))
+  )
+```
+
+#### Timeout Error Handling Patterns
+
+**Timeout with Custom Error**:
+
+```typescript
+const withTimeout = (effect, timeoutMs, operation) =>
+  pipe(
+    effect,
+    Effect.timeoutFail({
+      duration: Duration.millis(timeoutMs),
+      onTimeout: () => new TimeoutError({
+        message: `${operation} timed out after ${timeoutMs}ms`,
+        timeoutMs,
+        operation
+      })
+    })
+  )
+```
+
+**Timeout with Fallback Value**:
+
+```typescript
+const withTimeoutFallback = (effect, timeoutMs, fallback) =>
+  pipe(
+    effect,
+    Effect.timeout(Duration.millis(timeoutMs)),
+    Effect.map((option) => option._tag === "None" ? fallback : option.value),
+    Effect.catchAll(() => Effect.succeed(fallback))
+  )
+```
+
+**Timeout with Retry**:
+
+```typescript
+const withTimeoutRetry = (effect, timeoutMs, maxRetries, operation) =>
+  pipe(
+    effect,
+    Effect.timeoutFail({
+      duration: Duration.millis(timeoutMs),
+      onTimeout: () => new TimeoutError({ timeoutMs, operation })
+    }),
+    Effect.retry({
+      while: (error) => error._tag === "TimeoutError",
+      times: maxRetries
+    })
+  )
+```
+
+**Progressive Timeout**: Increase timeout on each retry
+
+```typescript
+// First attempt: 100ms, second: 200ms, third: 400ms...
+const withProgressiveTimeout = (effect, baseTimeoutMs, maxRetries, operation) =>
+  // Timeout doubles on each retry attempt
+  // Useful when network conditions vary
+```
+
+**Partial Results with Timeout**:
+
+```typescript
+const fetchMultipleWithTimeout = (urls: string[], timeoutMs: number) =>
+  pipe(
+    Effect.forEach(urls, (url) =>
+      pipe(
+        fetchData(url),
+        Effect.timeout(Duration.millis(timeoutMs)),
+        Effect.map((option) => option._tag === "None" ? null : option.value)
+      )
+    ),
+    Effect.map((results) => results.filter((r) => r !== null))
+  )
+  // Returns successful results even if some timed out
+```
+
+#### When to Use Each Pattern
+
+**Use tapError When:**
+- Logging errors for monitoring/debugging
+- Sending errors to telemetry services
+- Triggering side effects without handling errors
+- You want errors to continue propagating
+
+**Use Fallback Chain When:**
+- Multiple data sources can provide the same information
+- You want graceful degradation
+- Primary source might be temporarily unavailable
+- Default/cached data is acceptable fallback
+
+**Use Error Aggregation When:**
+- Validating multiple fields/items
+- You need to see ALL errors, not just the first one
+- Processing batches where partial success is valuable
+- Building user-facing validation messages
+
+**Use Context Enrichment When:**
+- Debugging complex error flows
+- Errors cross multiple service boundaries
+- You need request tracing
+- Building error reports for support teams
+
+**Use Timeouts When:**
+- External services might hang indefinitely
+- You have SLA requirements
+- User experience demands quick feedback
+- Preventing resource exhaustion from slow operations
+
+#### Common Patterns
+
+**API with Timeout and Fallback**:
+
+```typescript
+const robustApiCall = (url: string) =>
+  pipe(
+    fetchFromApi(url),
+    withTimeout(5000, "api-fetch"),
+    Effect.catchTag("TimeoutError", () => fetchFromCache(url)),
+    Effect.catchTag("NetworkError", () => Effect.succeed(defaultData)),
+    enrichErrorContext({ operation: "robustApiCall", url }),
+    Effect.tapError((error) => logToMonitoring(error))
+  )
+```
+
+**Batch Processing with Error Aggregation**:
+
+```typescript
+const processBatch = (items: Item[]) =>
+  pipe(
+    validateAll(items),
+    Effect.catchTag("AggregateError", (error) =>
+      Effect.gen(function* () {
+        yield* Console.log(`${error.failureCount} items failed validation`)
+        // Process valid items only
+        return processValidItems(error.successCount)
+      })
+    ),
+    enrichErrorContext({ operation: "batchProcess", count: items.length })
+  )
+```
+
+**Circuit Breaker with Monitoring**:
+
+```typescript
+const protectedServiceCall = (request: Request) =>
+  pipe(
+    makeCircuitBreaker(callExternalService(request), 5, Duration.seconds(30)),
+    Effect.tapError((error) =>
+      error._tag === "NetworkError" && error.message.includes("Circuit breaker")
+        ? alertOps("Circuit breaker opened")
+        : Effect.void
+    ),
+    withTimeout(10000, "service-call"),
+    enrichErrorContext({ operation: "serviceCall", requestId: request.id })
+  )
+```
+
 ## Project Structure
 
 ```
@@ -959,11 +1330,13 @@ const queryWithMetrics = (pool, sql) =>
 │   ├── scheduling.ts            # Scheduling and jittered delays
 │   ├── streaming.ts             # Stream processing patterns
 │   ├── resource-pooling.ts      # Resource pool management
+│   ├── error-handling.ts        # Enhanced error handling patterns
 │   ├── index.test.ts            # Tests for basic examples
 │   ├── concurrency.test.ts      # Tests for concurrency patterns
 │   ├── scheduling.test.ts       # Tests for scheduling patterns
 │   ├── streaming.test.ts        # Tests for stream processing
-│   └── resource-pooling.test.ts # Tests for resource pooling
+│   ├── resource-pooling.test.ts # Tests for resource pooling
+│   └── error-handling.test.ts   # Tests for error handling patterns
 ├── dist/                        # Compiled output
 ├── package.json
 ├── tsconfig.json

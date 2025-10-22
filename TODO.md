@@ -50,12 +50,20 @@ See evaluation details in PR/commit message.
 
 ### 5. Missing Patterns & Examples
 
-#### Resource Pooling
-- [ ] Create `src/resource-pooling.ts`
-- [ ] Add database connection pool example
-- [ ] Add HTTP client pool example
-- [ ] Add tests for resource pooling
-- [ ] Document pool configuration best practices
+#### Resource Pooling ✅
+- [x] Create `src/resource-pooling.ts`
+- [x] Add database connection pool example
+- [x] Add HTTP client pool example
+- [x] Add tests for resource pooling
+- [x] Document pool configuration best practices
+
+**Implementation Details**:
+- Created comprehensive resource pooling module with Effect.Pool
+- Database connection pool with configurable min/max sizes
+- HTTP client pool for concurrent requests
+- 22 passing tests covering pool lifecycle, transactions, metrics, and error handling
+- Advanced patterns: warmup, timeout, fallback, scoped connections
+- Documented best practices, common pitfalls, and usage guidelines in README
 
 #### Enhanced Error Handling
 - [ ] Add `Effect.tapError()` examples for logging
@@ -125,11 +133,11 @@ See evaluation details in PR/commit message.
 ## Progress Tracking
 
 **High Priority**: 3/3 completed ✅
-**Medium Priority**: 1/5 completed
+**Medium Priority**: 2/5 completed
 **Low Priority**: 0/3 completed
 **Optional**: 0/2 completed
 
-**Overall**: 4/13 sections completed
+**Overall**: 5/13 sections completed
 
 ---
 
@@ -144,4 +152,4 @@ See evaluation details in PR/commit message.
 
 ---
 
-Last Updated: 2025-10-21 (Task #4 completed)
+Last Updated: 2025-10-22 (Task #5 - Resource Pooling completed)

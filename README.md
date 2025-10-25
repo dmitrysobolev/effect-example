@@ -15,6 +15,7 @@ This project showcases various Effect library patterns including:
 - **Stream processing** (transformations, chunking, backpressure, data pipelines)
 - **Resource pooling** (database connections, HTTP clients, automatic lifecycle management)
 - **Enhanced error handling** (tapError logging, recovery strategies, error aggregation, context enrichment, timeout patterns)
+- **Circuit breaker patterns** (state management, metrics tracking, retry integration, monitoring hooks)
 
 ## Installation
 
@@ -1320,6 +1321,290 @@ const protectedServiceCall = (request: Request) =>
   )
 ```
 
+### 9. Circuit Breaker Patterns
+
+The `src/circuit-breaker.ts` module provides comprehensive circuit breaker implementations for preventing cascading failures in distributed systems. A circuit breaker monitors operations and "opens" when failures exceed a threshold, causing subsequent requests to fail fast instead of overwhelming a struggling service.
+
+#### Circuit Breaker State Machine
+
+```
+                  ┌─────────┐
+       ┌──────────┤  CLOSED │◄──────────┐
+       │          └─────────┘           │
+       │                │                │
+       │                │                │
+  success          failure_threshold     │
+       │             exceeded         success
+       │                │                │
+       │                ▼                │
+       │          ┌─────────┐            │
+       └──────────┤  OPEN   │            │
+                  └─────────┘            │
+                        │                │
+                        │                │
+                  timeout_elapsed        │
+                        │                │
+                        ▼                │
+                  ┌──────────┐           │
+                  │ HALF_OPEN│───────────┘
+                  └──────────┘
+                        │
+                        │
+                     failure
+                        │
+                        ▼
+                  (back to OPEN)
+```
+
+**States**:
+- **CLOSED**: Normal operation, requests pass through
+- **OPEN**: Circuit tripped, requests fail fast without calling service
+- **HALF_OPEN**: Testing recovery, allows limited requests through
+
+#### When to Use Circuit Breaker vs Simple Retry
+
+**Use Circuit Breaker When**:
+- Calling external services that may experience prolonged outages
+- Preventing cascading failures across microservices
+- The downstream service needs time to recover (CPU/memory exhaustion)
+- You want to fail fast during outages instead of wasting resources
+- Protecting your system from repeatedly calling a broken service
+
+**Use Simple Retry When**:
+- Transient network glitches (connection timeout, packet loss)
+- Rate limiting errors (can retry after backoff)
+- Temporary resource unavailability
+- Quick recovery is expected
+- The failure is unlikely to persist
+
+**Use Both Together When**:
+- You want retry logic for transient failures
+- But also protection against sustained failures
+- Example: Retry 3 times per request, but open circuit after 10 consecutive failures
+
+#### Basic Circuit Breaker
+
+```typescript
+import { makeCircuitBreaker } from "./circuit-breaker"
+
+const protectedCall = makeCircuitBreaker(riskyApiCall, {
+  failureThreshold: 5,      // Open after 5 failures
+  successThreshold: 2,      // Close after 2 successes in HALF_OPEN
+  resetTimeout: 60_000      // Try HALF_OPEN after 60 seconds
+})
+
+// Use it like any Effect
+const result = await Effect.runPromise(protectedCall)
+```
+
+#### Circuit Breaker with Metrics
+
+Track detailed metrics about circuit breaker performance:
+
+```typescript
+const { execute, getMetrics } = makeCircuitBreakerWithMetrics(apiCall, {
+  failureThreshold: 5,
+  successThreshold: 2,
+  resetTimeout: 60_000
+})
+
+// Execute requests
+await Effect.runPromise(execute())
+
+// Check metrics
+const metrics = getMetrics()
+console.log(`State: ${metrics.state}`)
+console.log(`Success rate: ${(metrics.totalSuccesses / metrics.totalRequests * 100).toFixed(1)}%`)
+console.log(`Failures: ${metrics.totalFailures}`)
+console.log(`State transitions: ${metrics.stateTransitions.length}`)
+```
+
+**Available Metrics**:
+- Current state (CLOSED, OPEN, HALF_OPEN)
+- Total requests, successes, failures
+- Consecutive successes and failures
+- Last success and failure timestamps
+- State transition history
+- Success/failure counts
+
+#### Circuit Breaker with Retry Integration
+
+Combine circuit breaker with retry logic for comprehensive resilience:
+
+```typescript
+const { execute } = makeCircuitBreakerWithRetry(apiCall, {
+  circuitBreaker: {
+    failureThreshold: 10,
+    successThreshold: 2,
+    resetTimeout: 60_000
+  },
+  retry: {
+    times: 3,
+    schedule: Schedule.exponential(Duration.millis(100))
+  }
+})
+
+// Automatically retries transient failures
+// Opens circuit for sustained failures
+await Effect.runPromise(execute())
+```
+
+**How it works**:
+1. Each request is retried up to 3 times for transient failures
+2. After 10 failed requests (each with retries), circuit opens
+3. When circuit is open, no retries are attempted (fail fast)
+4. After 60 seconds, circuit moves to HALF_OPEN to test recovery
+
+#### Monitored Circuit Breaker
+
+Add custom hooks for alerting, logging, and metrics:
+
+```typescript
+const { execute } = makeMonitoredCircuitBreaker(
+  apiCall,
+  {
+    failureThreshold: 5,
+    successThreshold: 2,
+    resetTimeout: 30_000
+  },
+  {
+    onCircuitOpen: (metrics) =>
+      Effect.all([
+        Console.log(`🚨 Circuit opened! Failures: ${metrics.totalFailures}`),
+        sendPagerDutyAlert("Circuit breaker opened"),
+        sendMetricToDatadog("circuit_breaker.opened", 1)
+      ]),
+
+    onCircuitClosed: (metrics) =>
+      Effect.all([
+        Console.log(`✅ Circuit closed. Success rate: ${metrics.totalSuccesses / metrics.totalRequests}`),
+        sendMetricToDatadog("circuit_breaker.closed", 1)
+      ]),
+
+    onStateChange: (from, to, metrics) =>
+      sendMetricToDatadog("circuit_breaker.state_change", 1, {
+        from,
+        to,
+        totalRequests: metrics.totalRequests
+      }),
+
+    onSuccess: (result, metrics) =>
+      sendMetricToDatadog("circuit_breaker.success", 1),
+
+    onFailure: (error, metrics) =>
+      Effect.all([
+        logError("circuit-breaker")(error),
+        sendMetricToDatadog("circuit_breaker.failure", 1)
+      ])
+  }
+)
+```
+
+#### Resilient API Client
+
+Complete example of a production-ready API client with circuit breaker:
+
+```typescript
+const client = createResilientApiClient(apiCall)
+
+// Make requests
+const response = await Effect.runPromise(client.call())
+
+// Health check
+const health = await Effect.runPromise(client.healthCheck())
+console.log(`Healthy: ${health.healthy}`)
+console.log(`State: ${health.state}`)
+console.log(`Success rate: ${health.successRate}%`)
+
+// Get detailed metrics
+const metrics = client.getMetrics()
+```
+
+#### Best Practices
+
+1. **Set Appropriate Thresholds**: Balance between quick failure detection and tolerance for transient errors
+   ```typescript
+   // Too sensitive - might trip on single transient error
+   failureThreshold: 1  // ❌
+
+   // Better - tolerates some failures
+   failureThreshold: 5  // ✓
+   ```
+
+2. **Choose Right Reset Timeout**: Give services enough time to recover
+   ```typescript
+   // Too short - might not give service time to recover
+   resetTimeout: 1_000  // 1 second ❌
+
+   // Better - allows recovery time
+   resetTimeout: 30_000  // 30 seconds ✓
+   ```
+
+3. **Monitor State Transitions**: Alert when circuit opens
+   ```typescript
+   onCircuitOpen: (metrics) =>
+     sendAlert(`Circuit opened for ${serviceName}`)
+   ```
+
+4. **Use with Retry for Transient Failures**: Circuit breaker alone won't retry
+   ```typescript
+   // Good: Retry + Circuit Breaker
+   makeCircuitBreakerWithRetry(apiCall, {
+     circuitBreaker: config,
+     retry: { times: 3 }
+   })
+   ```
+
+5. **Test Failure Scenarios**: Verify circuit breaker behaves correctly under load
+   ```typescript
+   // Simulate sustained failures
+   for (let i = 0; i < 10; i++) {
+     await Effect.runPromise(execute()).catch(() => {})
+   }
+   const metrics = getMetrics()
+   expect(metrics.state).toBe("OPEN")
+   ```
+
+#### Common Patterns
+
+**Fallback to Cache When Circuit Opens**:
+```typescript
+pipe(
+  circuitBreaker.execute(),
+  Effect.catchTag("CircuitBreakerOpenError", () =>
+    pipe(
+      Console.log("Circuit open, falling back to cache"),
+      Effect.flatMap(() => fetchFromCache(cacheKey))
+    )
+  )
+)
+```
+
+**Progressive Circuit Breaker**: Different thresholds for different error types
+```typescript
+const protectedCall = pipe(
+  apiCall,
+  Effect.retry({ times: 3 }),  // Retry transient errors
+  (effect) => makeCircuitBreaker(effect, {
+    failureThreshold: 10,      // But open circuit for sustained failures
+    successThreshold: 2,
+    resetTimeout: 60_000
+  })
+)
+```
+
+**Circuit Breaker per Endpoint**: Isolate failures to specific endpoints
+```typescript
+const circuitBreakers = {
+  users: makeCircuitBreaker(usersApi, config),
+  orders: makeCircuitBreaker(ordersApi, config),
+  products: makeCircuitBreaker(productsApi, config)
+}
+
+// One endpoint failing doesn't affect others
+const userData = await Effect.runPromise(circuitBreakers.users.execute())
+```
+
 ## Project Structure
 
 ```
@@ -1331,12 +1616,14 @@ const protectedServiceCall = (request: Request) =>
 │   ├── streaming.ts             # Stream processing patterns
 │   ├── resource-pooling.ts      # Resource pool management
 │   ├── error-handling.ts        # Enhanced error handling patterns
+│   ├── circuit-breaker.ts       # Circuit breaker patterns
 │   ├── index.test.ts            # Tests for basic examples
 │   ├── concurrency.test.ts      # Tests for concurrency patterns
 │   ├── scheduling.test.ts       # Tests for scheduling patterns
 │   ├── streaming.test.ts        # Tests for stream processing
 │   ├── resource-pooling.test.ts # Tests for resource pooling
-│   └── error-handling.test.ts   # Tests for error handling patterns
+│   ├── error-handling.test.ts   # Tests for error handling patterns
+│   └── circuit-breaker.test.ts  # Tests for circuit breaker patterns
 ├── dist/                        # Compiled output
 ├── package.json
 ├── tsconfig.json

@@ -2938,6 +2938,153 @@ npm run demo
 - Use descriptive error types (`class MyError extends Data.TaggedError<"MyError">()`)
 - Add JSDoc comments for public APIs
 
+## Advanced Topics
+
+### 1. Distributed Tracing
+
+The `src/tracing.ts` module provides comprehensive distributed tracing capabilities for tracking operations across your application.
+
+**Basic Usage:**
+```typescript
+import { withSpan, addSpanAttributes, InMemoryTracerLive } from "./tracing"
+
+const tracedOperation = pipe(
+  withSpan("my-operation", Effect.gen(function* () {
+    yield* addSpanAttributes({ userId: "123", operation: "fetch" })
+    return yield* Effect.succeed("result")
+  })),
+  Effect.provide(InMemoryTracerLive)
+)
+```
+
+**Nested Spans:**
+```typescript
+const fetchUserData = withSpan("fetch-user-data", Effect.gen(function* () {
+  const user = yield* withSpan("db-query",
+    Effect.succeed({ id: "123", name: "John" })
+  )
+  const enriched = yield* withSpan("enrich-user",
+    Effect.succeed({ ...user, profile: { age: 30 } })
+  )
+  return enriched
+}))
+```
+
+**Features:**
+- Automatic span creation and hierarchy management
+- Parent-child span relationships for nested operations
+- Rich attributes/tags for context
+- Error tracking within spans
+- Span timing and duration measurement
+- Cross-service trace propagation
+- Trace tree visualization with `formatSpanTree()`
+
+### 2. Metrics Collection
+
+The `src/metrics.ts` module provides various metric types for monitoring application performance.
+
+**Counter Metrics:**
+```typescript
+const requestCounter = Metric.counter("http_requests_total")
+yield* Metric.increment(requestCounter)
+
+// With labels
+const labeled = pipe(
+  requestCounter,
+  Metric.tagged("method", "GET"),
+  Metric.tagged("status", "200")
+)
+```
+
+**Gauge Metrics:**
+```typescript
+const activeConnections = Metric.gauge("active_connections")
+yield* Metric.set(activeConnections, 10)
+yield* Metric.update(activeConnections, 5)
+```
+
+**Histogram Metrics:**
+```typescript
+const requestDuration = Metric.histogram("request_duration_seconds")
+yield* Metric.update(requestDuration, 0.25)
+```
+
+**Tracking Utilities:**
+```typescript
+// Automatic duration tracking
+const tracked = pipe(myEffect, withDurationTracking(requestDuration))
+
+// Success/error counting
+const counted = pipe(myEffect, withCountTracking(successCounter, errorCounter))
+
+// Gauge tracking during operation
+const gauged = pipe(myEffect, withGaugeTracking(activeConnections, 1))
+```
+
+**Use Cases:**
+- HTTP request metrics (method, status, duration)
+- Database connection pooling
+- Cache hit/miss ratios
+- Queue size and processing time
+- Business metrics (orders, revenue)
+- System metrics (CPU, memory)
+
+### 3. Custom Operators
+
+The `src/custom-operators.ts` module provides reusable operators for common patterns.
+
+**Retry with Custom Logic:**
+```typescript
+const resilient = pipe(
+  myEffect,
+  retryWithBackoff(maxAttempts: 5, initialDelay: 100)
+)
+
+const selective = pipe(
+  myEffect,
+  retryOnError((error) => error.message === "RETRY_ME", 3)
+)
+```
+
+**Timeout Operators:**
+```typescript
+const withFallback = pipe(slowEffect, timeoutWith("5 seconds", "fallback"))
+const withError = pipe(slowEffect, timeoutOrFail("5 seconds", () => new Error("Timeout")))
+```
+
+**Conditional Execution:**
+```typescript
+const conditional = pipe(expensiveEffect, when(shouldExecute, defaultValue))
+const branched = ifThenElse(condition, trueEffect, falseEffect)
+```
+
+**Batching and Rate Limiting:**
+```typescript
+const processed = pipe(items, batchProcess(10, 3, processItem))
+const limited = pipe(operation, rateLimit("100 millis"))
+```
+
+**Fallback Chains:**
+```typescript
+const withFallbacks = pipe(
+  primaryEffect,
+  fallbackChain([secondaryEffect, tertiaryEffect]),
+  withDefault("ultimate-fallback")
+)
+```
+
+**Available Operators:**
+- Retry: `retryWithBackoff`, `retryOnError`
+- Timeout: `timeoutWith`, `timeoutOrFail`
+- Tap: `tapWhen`, `tapErrorWhen`
+- Filter: `filterOrFail`, `filterMap`
+- Debounce/Throttle: `debounce`, `rateLimit`
+- Memoization: `cacheFor`
+- Fallback: `fallbackChain`, `withDefault`
+- Conditional: `when`, `ifThenElse`
+- Logging: `withLogging`, `withTiming`
+- Batching: `batchProcess`, `collectUntil`
+
 ## Project Structure
 
 ```
@@ -2950,13 +3097,19 @@ npm run demo
 │   ├── resource-pooling.ts      # Resource pool management
 │   ├── error-handling.ts        # Enhanced error handling patterns
 │   ├── circuit-breaker.ts       # Circuit breaker patterns
+│   ├── tracing.ts               # Distributed tracing patterns
+│   ├── metrics.ts               # Metrics collection patterns
+│   ├── custom-operators.ts      # Reusable custom operators
 │   ├── index.test.ts            # Tests for basic examples
 │   ├── concurrency.test.ts      # Tests for concurrency patterns
 │   ├── scheduling.test.ts       # Tests for scheduling patterns
 │   ├── streaming.test.ts        # Tests for stream processing
 │   ├── resource-pooling.test.ts # Tests for resource pooling
 │   ├── error-handling.test.ts   # Tests for error handling patterns
-│   └── circuit-breaker.test.ts  # Tests for circuit breaker patterns
+│   ├── circuit-breaker.test.ts  # Tests for circuit breaker patterns
+│   ├── tracing.test.ts          # Tests for distributed tracing
+│   ├── metrics.test.ts          # Tests for metrics collection
+│   └── custom-operators.test.ts # Tests for custom operators
 ├── examples/
 │   ├── quick-start.ts           # Quick start examples
 │   ├── error-handling.ts        # Error handling examples

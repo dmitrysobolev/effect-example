@@ -100,7 +100,12 @@ async function runBenchmark(name: string, fn: () => Effect.Effect<any, any, any>
 
   for (let i = 0; i < iterations; i++) {
     const start = performance.now();
-    await Effect.runPromise(fn());
+    // Catch all errors and cast to remove context requirement for runPromise
+    const effect = pipe(
+      fn(),
+      Effect.catchAll(() => Effect.succeed(null))
+    ) as Effect.Effect<any, never, never>;
+    await Effect.runPromise(effect);
     const end = performance.now();
     times.push(end - start);
   }

@@ -21,6 +21,14 @@ export default defineConfig({
   },
   test: {
     globals: true,
-    environment: 'node'
+    environment: 'node',
+    reporters: ['default'],
+    benchmark: {
+      include: ['**/*.bench.ts'],
+      reporters: ['default', 'verbose']
+    },
+    outputFile: {
+      json: './test-results.json'
+    }
   }
 })

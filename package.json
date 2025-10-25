@@ -8,7 +8,9 @@
     "dev": "vite build --watch",
     "test": "vitest",
     "test:ui": "vitest --ui",
-    "example": "ts-node --project tsconfig.examples.json"
+    "example": "ts-node --project tsconfig.examples.json",
+    "demo": "ts-node scripts/demo.ts",
+    "benchmark": "ts-node scripts/benchmark.ts"
   },
   "dependencies": {
     "effect": "^3.0.0"

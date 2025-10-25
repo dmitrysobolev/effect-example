@@ -2776,6 +2776,168 @@ If you're stuck:
 3. Review the [Effect GitHub Issues](https://github.com/Effect-TS/effect/issues)
 4. Look at the test files in this repository for usage examples
 
+## Developer Experience
+
+This project includes several tools to improve your development workflow:
+
+### Interactive Demo
+
+Run an interactive demo to explore examples:
+
+```bash
+npm run demo
+```
+
+This launches an interactive menu where you can:
+- Browse all available examples
+- Run examples with formatted output
+- See execution results in real-time
+- Easily switch between different patterns
+
+### Performance Benchmarks
+
+Track and monitor performance over time:
+
+```bash
+# Run benchmarks
+npm run benchmark
+
+# Save current results as baseline
+npm run benchmark -- --save-baseline
+
+# Run without comparing to baseline
+npm run benchmark -- --no-compare
+```
+
+The benchmark tool:
+- Measures performance of core Effect patterns
+- Compares against saved baselines
+- Detects performance regressions (>10% slower)
+- Generates visual comparison charts
+- Tracks ops/sec, avg/min/max times
+
+**Sample Output:**
+```
+Visual Performance Comparison:
+
+Effect.succeed              ▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰   45,234 ops/sec
+pipe with flatMap           ▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▱▱▱▱▱▱▱▱▱▱   32,145 ops/sec
+Effect.all (3 effects)      ▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱   28,901 ops/sec
+```
+
+### Visual Test Timing
+
+The test suite includes a custom timing reporter that shows:
+- Top 10 slowest tests with visual bars
+- Duration breakdown by test file
+- Performance warnings for slow tests (>1s)
+- Test statistics and averages
+
+Run tests to see timing output:
+```bash
+npm test
+```
+
+### CI/CD Integration
+
+The project includes GitHub Actions workflows for:
+
+**Benchmark Regression Detection:**
+- Automatically runs benchmarks on PRs
+- Downloads baseline from main branch
+- Comments PR with results
+- Fails CI if regressions detected (>10% slower)
+- Updates baseline on main branch pushes
+
+See `.github/workflows/benchmark.yml` for configuration.
+
+### Development Tips
+
+**Quick Start Development:**
+```bash
+# Install dependencies
+npm install
+
+# Run tests in watch mode (great for TDD)
+npm test
+
+# Run tests with UI (interactive debugging)
+npm run test:ui
+
+# Build in watch mode
+npm run dev
+
+# Try interactive examples
+npm run demo
+```
+
+**Debugging Effect Code:**
+1. Use `Effect.tap` for logging without changing the type:
+   ```typescript
+   pipe(
+     myEffect,
+     Effect.tap(value => Console.log("Debug:", value))
+   )
+   ```
+
+2. Use `Effect.tapError` for error logging:
+   ```typescript
+   pipe(
+     myEffect,
+     Effect.tapError(error => Console.error("Error occurred:", error))
+   )
+   ```
+
+3. Add labels for better error messages:
+   ```typescript
+   pipe(
+     myEffect,
+     Effect.withSpan("my-operation")
+   )
+   ```
+
+**Testing with Effect:**
+1. Use `TestClock` for deterministic timing tests:
+   ```typescript
+   import { TestClock } from "effect/TestClock"
+
+   const test = Effect.gen(function* () {
+     const fiber = yield* Effect.fork(effectWithDelay)
+     yield* TestClock.adjust(Duration.seconds(5))
+     const result = yield* Fiber.join(fiber)
+     return result
+   })
+   ```
+
+2. Test error cases explicitly:
+   ```typescript
+   const result = await Effect.runPromise(
+     Effect.either(myEffect)
+   )
+   expect(result._tag).toBe("Left")
+   ```
+
+3. Use `Effect.runPromise` for async tests:
+   ```typescript
+   test("my effect", async () => {
+     const result = await Effect.runPromise(myEffect)
+     expect(result).toBe(expected)
+   })
+   ```
+
+**Performance Optimization:**
+- Use `Effect.cached` to cache expensive computations
+- Batch operations with `Effect.forEach` instead of individual calls
+- Set appropriate `concurrency` limits
+- Use `Effect.withSpan` for observability
+- Profile with `npm run benchmark`
+
+**Code Organization:**
+- Keep Effect chains readable (use `Effect.gen` for complex flows)
+- Extract reusable patterns into helper functions
+- Use descriptive error types (`class MyError extends Data.TaggedError<"MyError">()`)
+- Add JSDoc comments for public APIs
+
 ## Project Structure
 
 ```
@@ -2795,6 +2957,18 @@ If you're stuck:
 │   ├── resource-pooling.test.ts # Tests for resource pooling
 │   ├── error-handling.test.ts   # Tests for error handling patterns
 │   └── circuit-breaker.test.ts  # Tests for circuit breaker patterns
+├── examples/
+│   ├── quick-start.ts           # Quick start examples
+│   ├── error-handling.ts        # Error handling examples
+│   ├── concurrency-basics.ts    # Concurrency examples
+│   └── scheduling-basics.ts     # Scheduling examples
+├── scripts/
+│   ├── demo.ts                  # Interactive demo CLI
+│   ├── benchmark.ts             # Performance benchmarks
+│   └── timing-reporter.ts       # Custom vitest timing reporter
+├── .github/
+│   └── workflows/
+│       └── benchmark.yml        # Benchmark CI/CD workflow
 ├── dist/                        # Compiled output
 ├── package.json
 ├── tsconfig.json

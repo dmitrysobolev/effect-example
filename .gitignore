@@ -11,3 +11,8 @@ coverage/
 *.tsbuildinfo
 .claude/
 .idea/
+
+# Benchmark and test results (tracked separately in CI)
+.benchmark-baseline.json
+test-results.json
+benchmark-output.txt

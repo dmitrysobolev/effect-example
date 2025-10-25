@@ -264,11 +264,13 @@ export const connectToDatabase = (
       pipe(
         Schedule.jittered(Schedule.exponential(Duration.millis(50), 2.0)),
         Schedule.intersect(Schedule.recurs(5)),
-        Schedule.tapOutput((duration, attempt) =>
-          Console.log(
+        Schedule.tapOutput((output, attempt) => {
+          // intersect returns a tuple [Duration, number], extract the duration
+          const duration = Array.isArray(output) ? output[0] : output
+          return Console.log(
             `  🔄 Retry ${attempt + 1} scheduled after ${Duration.toMillis(duration)}ms`
           )
-        )
+        })
       )
     ),
     Effect.catchAll((error) =>

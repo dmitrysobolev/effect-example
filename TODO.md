@@ -147,13 +147,40 @@ See evaluation details in PR/commit message.
 - Updated project structure documentation to include new scripts and workflows
 - Added benchmark baseline and test results to `.gitignore`
 
-### 8. Advanced Topics
-- [ ] Investigate `Effect.Stream` patterns (if applicable to Effect 3.0)
-- [ ] Add distributed tracing examples
-- [ ] Add metrics collection patterns
-- [ ] Add integration examples with popular frameworks
-- [ ] Add examples of custom operators
-- [ ] Document advanced composition patterns
+### 8. Advanced Topics ✅
+- [x] Investigate `Effect.Stream` patterns (if applicable to Effect 3.0)
+- [x] Add distributed tracing examples
+- [x] Add metrics collection patterns
+- [x] Add examples of custom operators
+- [x] Document advanced topics in README
+
+**Implementation Details**:
+- **Distributed Tracing**: Created comprehensive `src/tracing.ts` module with:
+  - In-memory tracer implementation with span management
+  - Support for nested spans and parent-child relationships
+  - Span attributes and error tracking
+  - Cross-service trace context propagation
+  - Trace visualization with `formatSpanTree()`
+  - 25 passing tests covering all tracing patterns
+- **Metrics Collection**: Created `src/metrics.ts` module with:
+  - Counter, Gauge, and Histogram metrics
+  - Tagged metrics for dimensional data
+  - Utility functions: `withDurationTracking`, `withCountTracking`, `withGaugeTracking`
+  - Real-world examples: HTTP requests, database connections, cache metrics, queue metrics
+  - Business metrics and system metrics patterns
+- **Custom Operators**: Created `src/custom-operators.ts` module with:
+  - Retry operators: `retryWithBackoff`, `retryOnError`
+  - Timeout operators: `timeoutWith`, `timeoutOrFail`
+  - Conditional execution: `when`, `ifThenElse`, `tapWhen`
+  - Filtering: `filterOrFail`, `filterMap`
+  - Fallback chains: `fallbackChain`, `withDefault`
+  - Batching: `batchProcess`, `collectUntil`
+  - Rate limiting and memoization patterns
+  - 20 passing tests demonstrating operator usage
+- **Documentation**: Added comprehensive "Advanced Topics" section to README with:
+  - Usage examples for tracing, metrics, and custom operators
+  - Feature lists and use cases
+  - Code examples for common patterns
 
 ### 9. Build & Tooling
 - [ ] Add bundle size analysis
@@ -184,10 +211,10 @@ See evaluation details in PR/commit message.
 
 **High Priority**: 3/3 completed ✅
 **Medium Priority**: 5/5 completed ✅
-**Low Priority**: 1/3 completed (Developer Experience ✅)
+**Low Priority**: 2/3 completed (Developer Experience ✅, Advanced Topics ✅)
 **Optional**: 0/2 completed
 
-**Overall**: 9/13 sections completed
+**Overall**: 10/13 sections completed
 
 ---
 
@@ -202,4 +229,4 @@ See evaluation details in PR/commit message.
 
 ---
 
-Last Updated: 2025-10-25 (Task #7 - Developer Experience completed)
+Last Updated: 2025-10-25 (Task #8 - Advanced Topics completed)

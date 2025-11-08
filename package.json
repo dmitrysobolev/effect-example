@@ -10,7 +10,8 @@
     "test:ui": "vitest --ui",
     "example": "ts-node --project tsconfig.examples.json",
     "demo": "ts-node scripts/demo.ts",
-    "benchmark": "ts-node scripts/benchmark.ts"
+    "benchmark": "ts-node scripts/benchmark.ts",
+    "analyze:bundle": "npm run build -- --emptyOutDir && ts-node scripts/analyze-bundle.ts"
   },
   "dependencies": {
     "effect": "^3.0.0"

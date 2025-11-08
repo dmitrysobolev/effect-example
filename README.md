@@ -2825,6 +2825,23 @@ pipe with flatMap           ▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰�
 Effect.all (3 effects)      ▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱   28,901 ops/sec
 ```
 
+### Bundle Size Analysis
+
+Generate a size report for the built library (including gzip and Brotli estimates):
+
+```bash
+npm run analyze:bundle
+```
+
+This command will:
+
+- Produce a production build in `dist/`
+- Print a sorted size table for every emitted file
+- Output cumulative raw/gzip/Brotli totals
+- Save a machine-readable report to `dist/bundle-analysis.json`
+
+Use the generated report to track the impact of changes to the bundle surface area over time or to upload bundle stats to external dashboards.
+
 ### Visual Test Timing
 
 The test suite includes a custom timing reporter that shows:

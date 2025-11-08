@@ -183,11 +183,16 @@ See evaluation details in PR/commit message.
   - Code examples for common patterns
 
 ### 9. Build & Tooling
-- [ ] Add bundle size analysis
+- [x] Add bundle size analysis
 - [ ] Create example playground with hot reload
 - [ ] Add ESLint configuration for Effect best practices
 - [ ] Add pre-commit hooks for tests
 - [ ] Generate API documentation from JSDoc comments
+
+**Implementation Details (Bundle Size Analysis)**:
+- Added `scripts/analyze-bundle.ts` to produce raw/gzip/Brotli metrics for every emitted asset
+- Created `npm run analyze:bundle` script that builds the library and prints a formatted size table
+- Persist generated metrics to `dist/bundle-analysis.json` for regression tracking and external tooling integration
 
 ## Optional Enhancements
 
